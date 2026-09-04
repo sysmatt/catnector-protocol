@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sysmatt.github.io/catnector-protocol/schema/follow_state.json",
+  "title": "Catnector Protocol \u2014 follow_state",
+  "allOf": [
+    {
+      "$ref": "common.json#/$defs/envelopeFields"
+    }
+  ],
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "common.json#/$defs/version"
+    },
+    "type": {
+      "const": "follow_state"
+    },
+    "id": {
+      "$ref": "common.json#/$defs/id"
+    },
+    "re": {
+      "$ref": "common.json#/$defs/id"
+    },
+    "req": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ts": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "following": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128,
+      "description": "Display string, or null when no follow is active. Display only \u2014 never behavioural. SPEC.md \u00a77.5."
+    }
+  },
+  "required": [
+    "v",
+    "type",
+    "id",
+    "following"
+  ],
+  "additionalProperties": true
+}

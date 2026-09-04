@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sysmatt.github.io/catnector-protocol/schema/common.json",
+  "title": "Catnector Protocol \u2014 common definitions",
+  "description": "Shared definitions for protocol version 1. See SPEC.md \u00a76.",
+  "$defs": {
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "timestamp": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "UTC milliseconds since the Unix epoch."
+    },
+    "frequency": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Hertz, as an integer. Never a float, never kilohertz. SPEC.md \u00a76.1."
+    },
+    "passband": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Filter width in hertz."
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "USB",
+        "LSB",
+        "CW",
+        "CWR",
+        "RTTY",
+        "RTTYR",
+        "AM",
+        "FM",
+        "WFM",
+        "AMS",
+        "PKTLSB",
+        "PKTUSB",
+        "PKTFM",
+        "ECSSUSB",
+        "ECSSLSB",
+        "FAX",
+        "SAM",
+        "SAL",
+        "SAH",
+        "DSB"
+      ],
+      "description": "Hamlib mode token. An unrecognised token is refused, never substituted. SPEC.md \u00a76.1."
+    },
+    "feature": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "$ref": "common.json#/$defs/feature"
+      },
+      "uniqueItems": true
+    },
+    "rigHealth": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "offline",
+        "error"
+      ],
+      "description": "Rig health, distinct from session health. SPEC.md \u00a77.3."
+    },
+    "rig": {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Operator-chosen nickname of the active rig profile."
+        },
+        "health": {
+          "$ref": "common.json#/$defs/rigHealth"
+        }
+      },
+      "required": [
+        "health"
+      ],
+      "additionalProperties": true
+    },
+    "envelopeFields": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "$ref": "common.json#/$defs/version"
+        },
+        "type": {
+          "type": "string"
+        },
+        "id": {
+          "$ref": "common.json#/$defs/id"
+        },
+        "re": {
+          "$ref": "common.json#/$defs/id"
+        },
+        "req": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "description": "Field names the receiver MUST understand or refuse the whole message. SPEC.md \u00a78.2."
+        },
+        "ts": {
+          "$ref": "common.json#/$defs/timestamp"
+        }
+      },
+      "required": [
+        "v",
+        "type",
+        "id"
+      ]
+    }
+  }
+}

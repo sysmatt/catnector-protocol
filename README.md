@@ -38,10 +38,50 @@ Open a pull request to add yours.
 | Path | What |
 |---|---|
 | `SPEC.md` | The normative specification. |
-| `schema/` | JSON Schema for message shapes. Normative. |
-| `reference/` | Reference mock server. |
-| `conformance/` | Checker a site can run against its own endpoint. |
+| `schema/` | JSON Schema for every message and the capability document. Normative. |
+| `catnector_protocol/` | Schema loader, token codec, reference site, conformance checker. |
+| `tests/` | End-to-end tests. The reference site must pass the conformance checker. |
 | `docs/PLANNING.md` | Design decisions and their reasoning. Not normative. |
+| `CHANGELOG.md` | Protocol and document history. |
+
+## Try it
+
+```sh
+pip install -e .
+
+# a mock site, speaking the protocol with no database behind it
+catnector-mock-server --port 8799
+
+# in another shell: check that site against the specification
+catnector-conformance --token "$(python -c \
+  'from catnector_protocol.tokens import encode; print(encode("localhost:8799","any"))')" \
+  --mock-base http://127.0.0.1:8799
+```
+
+Point the same checker at your own endpoint to find out whether it conforms.
+Checks that need the site to *do* something — push a tune, clear a follow —
+are skipped unless you pass `--mock-base` or `--interactive`, rather than
+being assumed to pass.
+
+The mock site also accepts `POST /mock/set_rig` and `POST /mock/follow_state`
+so a client under development has something to react to:
+
+```sh
+curl -X POST http://127.0.0.1:8799/mock/set_rig \
+  -d '{"freq":14195000,"mode":"USB","source":"Following W1ABC"}'
+```
+
+## Development
+
+```sh
+pip install -e . pytest pytest-asyncio
+pytest
+```
+
+The end-to-end test runs the conformance checker against the reference site.
+It is what keeps the specification, the schemas, the reference implementation
+and the checker from drifting apart — if they disagree, the repository finds
+out rather than an implementer does.
 
 ## Licensing
 

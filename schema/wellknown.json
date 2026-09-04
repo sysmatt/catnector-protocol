@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sysmatt.github.io/catnector-protocol/schema/wellknown.json",
+  "title": "Catnector Protocol \u2014 capability document",
+  "description": "Served at https://<host>/.well-known/catnector. SPEC.md \u00a74.2.",
+  "type": "object",
+  "properties": {
+    "protocol_versions": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "websocket_url": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^wss?://"
+    },
+    "telemetry_interval_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1000
+    },
+    "features": {
+      "$ref": "common.json#/$defs/features"
+    },
+    "site_name": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "site_url": {
+      "type": "string",
+      "format": "uri"
+    }
+  },
+  "required": [
+    "protocol_versions",
+    "websocket_url"
+  ],
+  "additionalProperties": true
+}

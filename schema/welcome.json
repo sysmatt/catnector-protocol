@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sysmatt.github.io/catnector-protocol/schema/welcome.json",
+  "title": "Catnector Protocol \u2014 welcome",
+  "allOf": [
+    {
+      "$ref": "common.json#/$defs/envelopeFields"
+    }
+  ],
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "common.json#/$defs/version"
+    },
+    "type": {
+      "const": "welcome"
+    },
+    "id": {
+      "$ref": "common.json#/$defs/id"
+    },
+    "re": {
+      "$ref": "common.json#/$defs/id"
+    },
+    "req": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ts": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "session": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "user": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "callsign": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "Self-asserted, not unique, never an identifier. SPEC.md \u00a77.2."
+        }
+      },
+      "required": [
+        "id"
+      ]
+    },
+    "telemetry_interval_ms": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "features": {
+      "$ref": "common.json#/$defs/features"
+    }
+  },
+  "required": [
+    "v",
+    "type",
+    "id",
+    "re",
+    "session"
+  ],
+  "additionalProperties": true
+}

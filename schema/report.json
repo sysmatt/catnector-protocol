@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sysmatt.github.io/catnector-protocol/schema/report.json",
+  "title": "Catnector Protocol \u2014 report",
+  "allOf": [
+    {
+      "$ref": "common.json#/$defs/envelopeFields"
+    }
+  ],
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "common.json#/$defs/version"
+    },
+    "type": {
+      "const": "report"
+    },
+    "id": {
+      "$ref": "common.json#/$defs/id"
+    },
+    "re": {
+      "$ref": "common.json#/$defs/id"
+    },
+    "req": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ts": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "freq": {
+      "$ref": "common.json#/$defs/frequency"
+    },
+    "mode": {
+      "$ref": "common.json#/$defs/mode"
+    },
+    "passband": {
+      "$ref": "common.json#/$defs/passband"
+    },
+    "rig": {
+      "$ref": "common.json#/$defs/rig"
+    }
+  },
+  "required": [
+    "v",
+    "type",
+    "id",
+    "ts",
+    "rig"
+  ],
+  "additionalProperties": true,
+  "if": {
+    "properties": {
+      "rig": {
+        "properties": {
+          "health": {
+            "const": "ok"
+          }
+        }
+      }
+    },
+    "required": [
+      "rig"
+    ]
+  },
+  "then": {
+    "required": [
+      "freq"
+    ],
+    "description": "When the rig is healthy the report carries current values."
+  }
+}

@@ -101,7 +101,7 @@ A client is configured with a single token, which carries the endpoint
 hostname so that no separate server-URL entry step is required.
 
 ```
-cnx1_<payload>_<check>
+cnx1_<payload>.<check>
 ```
 
 - `payload` — base64url, unpadded, of the UTF-8 encoding of a JSON object:
@@ -116,6 +116,10 @@ cnx1_<payload>_<check>
 
 - `check` — the first 6 characters of the base64url, unpadded, encoding of
   `SHA-256(payload)`, where `payload` is the ASCII text above.
+
+The checksum is separated by `.` rather than `_` because `_` is part of the
+base64url alphabet; using it would make the split ambiguous whenever a
+payload or checksum happened to contain one.
 
 A client MUST verify `check` before use and MUST report a damaged token
 distinctly from a rejected one. Truncation by mail clients and chat windows
@@ -182,6 +186,10 @@ Authorization: Bearer <t from the token payload>
 ```
 
 Note that this is the inner `t` value, not the whole `cnx1_…` wrapper.
+
+A site MAY reject the upgrade itself with HTTP 401 when the token is absent
+or unusable, rather than completing the upgrade and closing with `4002`.
+Clients MUST handle both.
 
 Consequence, accepted deliberately: browsers cannot set headers on WebSocket
 connections, so a browser-based client is not possible without a
@@ -259,7 +267,11 @@ First message after the socket opens.
 
 `features` is the client's supported optional-feature list (§8.3).
 `rig.profile` is the operator-chosen nickname of the active rig profile, for
-display on the site. `rig.health` is as in §7.2.
+display on the site. `rig.health` is as in §7.3.
+
+`rig` MAY be omitted when the operator has not yet selected a rig profile. A
+client that is connected but has no rig configured is a normal state, not an
+error.
 
 ### 7.2 `welcome` — site to client
 
@@ -303,9 +315,10 @@ Sent no more often than the negotiated telemetry interval (§9.1).
 **Rig health is distinct from session health.** "Connected to the site, rig
 offline" is a common and real state, and a site MUST be able to display it
 rather than dropping the operator's spot or continuing to show a stale
-frequency as though it were live. When health is not `ok`, `freq` and `mode`
-carry the last known good values and `ts` is when they were read — so a site
-can show their age rather than implying currency.
+frequency as though it were live. When health is `ok`, `freq` MUST be present. When health is not `ok`, `freq`
+and `mode` carry the last known good values if any exist and MAY be omitted
+entirely if the rig has never been reached; `ts` is when those values were
+read, so a site can show their age rather than implying currency.
 
 ### 7.4 `set_rig` — site to client
 

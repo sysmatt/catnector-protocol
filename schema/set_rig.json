@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sysmatt.github.io/catnector-protocol/schema/set_rig.json",
+  "title": "Catnector Protocol \u2014 set_rig",
+  "allOf": [
+    {
+      "$ref": "common.json#/$defs/envelopeFields"
+    }
+  ],
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "common.json#/$defs/version"
+    },
+    "type": {
+      "const": "set_rig"
+    },
+    "id": {
+      "$ref": "common.json#/$defs/id"
+    },
+    "re": {
+      "$ref": "common.json#/$defs/id"
+    },
+    "req": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ts": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "freq": {
+      "$ref": "common.json#/$defs/frequency"
+    },
+    "mode": {
+      "$ref": "common.json#/$defs/mode"
+    },
+    "passband": {
+      "$ref": "common.json#/$defs/passband"
+    },
+    "source": {
+      "type": "string",
+      "maxLength": 256,
+      "description": "Opaque display text: who caused this and why. Never behavioural."
+    }
+  },
+  "required": [
+    "v",
+    "type",
+    "id",
+    "freq"
+  ],
+  "additionalProperties": true
+}

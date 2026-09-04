@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "catnector-protocol"
+version = "1.0.0.dev0"
+description = "Reference server and conformance checker for the Catnector Protocol"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE-CODE"]
+authors = [{ name = "Matt Hoskins, K2TTA" }]
+keywords = ["amateur-radio", "ham-radio", "hamlib", "cat-control", "protocol"]
+dependencies = [
+    "aiohttp>=3.9",
+    "jsonschema>=4.18",
+]
+
+[project.urls]
+Homepage = "https://github.com/sysmatt/catnector-protocol"
+Specification = "https://github.com/sysmatt/catnector-protocol/blob/main/SPEC.md"
+
+[project.scripts]
+catnector-mock-server = "catnector_protocol.reference:main"
+catnector-conformance = "catnector_protocol.conformance:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["catnector_protocol"]
+artifacts = ["schema/*.json"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"schema" = "catnector_protocol/schema"
+
+[tool.hatch.build.targets.sdist]
+include = ["catnector_protocol", "schema", "SPEC.md", "README.md", "LICENSE-CODE", "LICENSE-DOCS"]

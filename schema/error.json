@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sysmatt.github.io/catnector-protocol/schema/error.json",
+  "title": "Catnector Protocol \u2014 error",
+  "allOf": [
+    {
+      "$ref": "common.json#/$defs/envelopeFields"
+    }
+  ],
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "common.json#/$defs/version"
+    },
+    "type": {
+      "const": "error"
+    },
+    "id": {
+      "$ref": "common.json#/$defs/id"
+    },
+    "re": {
+      "$ref": "common.json#/$defs/id"
+    },
+    "req": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ts": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "code": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "detail": {
+      "type": "string",
+      "maxLength": 512
+    }
+  },
+  "required": [
+    "v",
+    "type",
+    "id",
+    "code"
+  ],
+  "additionalProperties": true
+}

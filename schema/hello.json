@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sysmatt.github.io/catnector-protocol/schema/hello.json",
+  "title": "Catnector Protocol \u2014 hello",
+  "allOf": [
+    {
+      "$ref": "common.json#/$defs/envelopeFields"
+    }
+  ],
+  "type": "object",
+  "properties": {
+    "v": {
+      "$ref": "common.json#/$defs/version"
+    },
+    "type": {
+      "const": "hello"
+    },
+    "id": {
+      "$ref": "common.json#/$defs/id"
+    },
+    "re": {
+      "$ref": "common.json#/$defs/id"
+    },
+    "req": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ts": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "client": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 64
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ]
+    },
+    "features": {
+      "$ref": "common.json#/$defs/features"
+    },
+    "rig": {
+      "$ref": "common.json#/$defs/rig",
+      "description": "MAY be omitted before the operator has selected a rig profile."
+    }
+  },
+  "required": [
+    "v",
+    "type",
+    "id",
+    "client",
+    "features"
+  ],
+  "additionalProperties": true
+}

@@ -1,8 +1,8 @@
 # Catnector Protocol — Project Planning
 
-Status: **`SPEC.md` v1 drafted** (2026-09-03). Governance and licensing are
-settled. Remaining work is the two LICENSE files, the reference mock server,
-and the conformance checker.
+Status: **v1 complete and self-verifying** (2026-09-03). `SPEC.md`, the JSON
+Schemas, the reference mock site and the conformance checker all exist, and
+the reference site passes its own conformance checker in CI.
 
 **The protocol definition belongs in this repo — in `SPEC.md`, in full.**
 That is the repo's deliverable and the thing every implementation is written
@@ -151,27 +151,29 @@ codes (§5.1) and the rig-control layer (§8).
 | | |
 |---|---|
 | **Spec format** | Markdown as the normative document, plus normative JSON Schema files for message shapes so implementers can validate mechanically rather than reading prose carefully. AsyncAPI was considered and rejected: the "correct" answer for event-driven APIs, but heavy for an audience that would rather read Markdown than learn a spec format. |
-| **Contents** | `SPEC.md`, `schema/*.json`, `reference/`, `conformance/`, `examples/`, `CHANGELOG.md`. |
+| **Contents** | `SPEC.md`, `schema/*.json`, `catnector_protocol/` (schema loader, token codec, reference site, conformance checker), `tests/`, `CHANGELOG.md`. The reference site and checker were originally planned as separate `reference/` and `conformance/` directories; they became modules of one installable package instead, so that `pip install` yields both console scripts and they can share the schema loader and token codec rather than duplicating them. |
 | **Versioning** | Protocol versions are integers (`v1`, `v2`); the document gets dated revisions. Keeping them separate stops a typo fix from looking like a wire change. |
 | **Reference server language** | Python, so `catnector` consumes it directly as a CI fixture. Mild tension — a Python-only reference could read as "the protocol is Pythonic" — mitigated by the transcripts being ground truth. |
 | **Known implementations** | A list in the README. Trivial, and what makes an open protocol look alive rather than aspirational. |
 
 `SPEC.md` Appendices A and B are annotated transcripts of a full session and
-of refused messages. They are the seed of `examples/`, and are likely the
-single most useful artifact for someone writing an implementation.
+of refused messages — likely the single most useful artifact for someone
+writing an implementation. A separate `examples/` directory proved
+unnecessary: the transcripts are exercised by the end-to-end test, so they
+cannot drift from behaviour the way a static example file would.
 
 ## 9. Next steps
 
-- Add the two LICENSE files (§3), with the scope of each stated in the
-  README, and rewrite the README to point at `SPEC.md`.
-- Extract `schema/*.json` from `SPEC.md` §6 and §7, and wire schema
-  validation into the reference server so the document and the schemas
-  cannot drift apart silently.
-- Build the reference mock server, then the conformance checker (§6).
+- Publish `SPEC.md` somewhere linkable (GitHub Pages) so the schema `$id`
+  URLs resolve, and so a site can read the spec without cloning.
+- Add CI running `pytest` — the end-to-end test is the thing that keeps the
+  document, the schemas, the reference site and the checker in agreement.
 - Reconcile the `catnector` and `hamqsy` planning docs against `SPEC.md`
   (§7) — `catnector` §3/§5.1/§6/§8.4 become pointers; `hamqsy`'s copy needs
   more work, as it predates the plain-WSS decision, the forward-compatibility
   rules, the close codes and the rig-control layer.
 - Review `SPEC.md` §12 (client safety requirements) against `catnector` §10
-  once catnector's implementation exists — the spec states them as
-  requirements on any client, and the two must not drift.
+  as catnector is implemented — the spec states them as requirements on any
+  client, and the two must not drift.
+- Consider a client-side conformance mode (§6), once there is a second
+  client to point it at.
