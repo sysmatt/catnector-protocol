@@ -117,3 +117,17 @@ def test_unknown_mode_is_rejected_not_coerced():
     with pytest.raises(schemas.SchemaError):
         schemas.validate_message(
             {"v": 1, "type": "set_rig", "id": "s1", "freq": 14074000, "mode": "OLIVIA"})
+
+
+def test_every_named_schema_is_actually_present():
+    """Catches the schemas being packaged to a path the loader cannot see.
+
+    Installed as a wheel the schemas sit inside the package; in a checkout
+    they sit at the repository root. Resolving only one layout leaves the
+    reference site returning HTTP 500 for its own capability document.
+    """
+    assert schemas.SCHEMA_DIR.is_dir(), schemas.SCHEMA_DIR
+    for filename in [*schemas.MESSAGE_SCHEMAS.values(), schemas.WELLKNOWN_SCHEMA]:
+        assert (schemas.SCHEMA_DIR / filename).is_file(), filename
+    schemas.validate_wellknown(
+        {"protocol_versions": [1], "websocket_url": "wss://example.invalid/ws"})

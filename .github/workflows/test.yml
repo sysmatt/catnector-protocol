@@ -20,3 +20,16 @@ jobs:
       # keeps SPEC.md, the schemas, the reference implementation and the
       # checker in agreement with each other.
       - run: pytest -q
+
+      # The source tree and an installed wheel resolve the schema directory
+      # differently; only testing the checkout hides a broken package.
+      - name: Test the built wheel, not just the checkout
+        run: |
+          python -m pip install --quiet build
+          python -m build --wheel --outdir dist
+          python -m venv /tmp/wheeltest
+          /tmp/wheeltest/bin/pip install --quiet dist/*.whl
+          /tmp/wheeltest/bin/python -c "
+          from catnector_protocol import schemas
+          schemas.validate_wellknown({'protocol_versions':[1],'websocket_url':'wss://e.invalid/w'})
+          print('installed wheel resolves its schemas')"

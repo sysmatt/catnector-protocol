@@ -54,10 +54,27 @@ class Token:
         return f"{self.https_base}/.well-known/catnector"
 
 
+def split_host_port(host: str) -> tuple[str, str]:
+    """Split ``host[:port]`` without mangling IPv6 addresses.
+
+    ``[::1]:8443`` -> ``("::1", "8443")``; ``::1`` -> ``("::1", "")``;
+    ``example.org:443`` -> ``("example.org", "443")``.
+    """
+    text = host.strip()
+    if text.startswith("["):
+        address, _, rest = text[1:].partition("]")
+        return address, rest.lstrip(":")
+    if text.count(":") == 1:
+        name, _, port = text.partition(":")
+        return name, port
+    # No colon at all, or several — a bare IPv6 address either way.
+    return text, ""
+
+
 def is_local(host: str) -> bool:
     """Hosts exempt from the TLS requirement (SPEC.md §5.1)."""
-    name = host.rsplit(":", 1)[0].strip("[]").lower()
-    return name in ("localhost", "127.0.0.1", "::1")
+    name, _ = split_host_port(host)
+    return name.lower() in ("localhost", "127.0.0.1", "::1")
 
 
 def _b64(raw: bytes) -> str:

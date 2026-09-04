@@ -15,7 +15,19 @@ from typing import Any
 from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 
-SCHEMA_DIR = Path(__file__).resolve().parent.parent / "schema"
+def _schema_dir() -> Path:
+    """Where the schemas live, in an installed wheel or a source tree.
+
+    The wheel force-includes ``schema/`` inside the package; a checkout keeps
+    it at the repository root. Checking the package location first means an
+    installed copy never reaches outside itself.
+    """
+    here = Path(__file__).resolve().parent
+    packaged = here / "schema"
+    return packaged if packaged.is_dir() else here.parent / "schema"
+
+
+SCHEMA_DIR = _schema_dir()
 
 #: Message ``type`` -> schema filename.
 MESSAGE_SCHEMAS = {
