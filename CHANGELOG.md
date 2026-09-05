@@ -35,3 +35,25 @@ result:
   token that both reconnect will supersede each other indefinitely.
 - **The checksum separator is `.`, not `_`.** `_` is part of the base64url
   alphabet, which made the token split ambiguous.
+
+### Unreleased
+
+Conformance checker, in response to feedback from the first real run against
+an independent implementation:
+
+- Interactive prompts now describe what to click on the site, instead of
+  printing the reference site's internal `/mock/` paths at a person.
+- No keystroke is asked for. The checker is connected and listening the whole
+  time, so acting before or after a prompt is equally fine — the old
+  "press Enter" step made the ordering look significant when it was not.
+- **Dropped the `split` refusal check.** It asked a site to send a field the
+  checker had not advertised, which §8.3 forbids it from sending — so a
+  conforming site could not pass it. Refusal tolerance is now checked by
+  declining an ordinary tune, which is what happens routinely in practice
+  (the radio is transmitting, the frequency is out of range, the operator has
+  automatic tuning off).
+- Added a passive check that a site sends **only** the optional fields the
+  client advertised (§8.3). It needs no trigger and is the rule that keeps
+  deployed clients working as the protocol grows.
+- `set_rig` messages are now validated as they arrive: integer hertz, and a
+  recognised hamlib mode token.

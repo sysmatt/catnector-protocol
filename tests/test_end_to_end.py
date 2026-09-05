@@ -45,10 +45,12 @@ async def test_reference_server_passes_conformance():
     assert report.count(PASS) >= 10, rendered
 
     by_name = {r.name: r for r in report.results}
-    for required in ("handshake", "heartbeat ping/pong", "set_rig round trip",
-                     "follow_state cleared", "one session per account",
+    for required in ("handshake", "heartbeat ping/pong",
+                     "site sends a usable set_rig", "site tolerates a refusal",
+                     "follow_state is set", "follow_state is cleared",
+                     "only advertised fields are used", "one session per account",
                      "rejects missing bearer token", "rejects unsupported version",
-                     "enforces telemetry interval", "tolerates nack"):
+                     "enforces telemetry interval"):
         assert by_name[required].status == PASS, f"{required}: {by_name[required]}"
 
 
@@ -60,7 +62,7 @@ async def test_skips_observational_checks_without_a_trigger():
         report = await Checker(token).run()
 
     by_name = {r.name: r for r in report.results}
-    assert by_name["set_rig round trip"].status == SKIP
+    assert by_name["site sends a usable set_rig"].status == SKIP
     assert by_name["handshake"].status == PASS
     assert report.count(FAIL) == 0
 

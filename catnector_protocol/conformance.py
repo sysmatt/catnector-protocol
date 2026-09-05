@@ -34,6 +34,29 @@ SUBPROTOCOL = "catnector.v1"
 PROTOCOL_VERSION = 1
 
 PASS, FAIL, WARN, SKIP = "PASS", "FAIL", "WARN", "SKIP"
+
+#: Fields every message may carry, so they are not "optional features".
+_ENVELOPE_FIELDS = frozenset({"v", "type", "id", "re", "req", "ts"})
+
+#: Hamlib mode tokens — normative (SPEC.md §6.1).
+_MODES = frozenset({
+    "USB", "LSB", "CW", "CWR", "RTTY", "RTTYR", "AM", "FM", "WFM", "AMS",
+    "PKTLSB", "PKTUSB", "PKTFM", "ECSSUSB", "ECSSLSB", "FAX", "SAM", "SAL",
+    "SAH", "DSB",
+})
+
+#: Fields this checker advertises understanding of, per message type. A site
+#: must not send anything else (SPEC.md §8.3).
+_ADVERTISED = {
+    "welcome": {"session", "telemetry_interval_ms", "features"},
+    "set_rig": {"freq", "mode", "passband", "source"},
+    "follow_state": {"following"},
+    "pong": set(),
+    "error": {"code", "detail"},
+}
+
+#: How long to wait for a person to click something, in interactive mode.
+HUMAN_TIMEOUT = 120.0
 _COLOUR = {PASS: "\033[32m", FAIL: "\033[31m", WARN: "\033[33m", SKIP: "\033[90m"}
 
 
@@ -83,15 +106,19 @@ def _msg(mtype: str, mid: str, **fields: Any) -> dict[str, Any]:
 
 class Checker:
     def __init__(self, token: tokens.Token, mock_base: str | None = None,
-                 interactive: bool = False, timeout: float = 10.0) -> None:
+                 interactive: bool = False, timeout: float = 10.0,
+                 human_timeout: float = HUMAN_TIMEOUT) -> None:
         self.token = token
         self.mock_base = mock_base.rstrip("/") if mock_base else None
         self.interactive = interactive
         self.timeout = timeout
+        self.human_timeout = human_timeout
         self.report = Report()
         self.wellknown: dict[str, Any] = {}
         self.ws_url = ""
         self._n = 0
+        #: message type -> optional fields the site actually used
+        self._fields_seen: dict[str, set[str]] = {}
 
     def nid(self) -> str:
         self._n += 1
@@ -245,6 +272,8 @@ class Checker:
 
         try:
             welcome = await self._handshake(ws)
+            if welcome is not None:
+                self._note_fields(welcome)
             if welcome is None:
                 self.report.add("handshake", FAIL, "no welcome received", "§7.2")
                 return
@@ -420,6 +449,32 @@ class Checker:
                 "the site never cleared follow_state — every follower's client "
                 "would go on claiming a follow that is over", "§7.5")
 
+    def check_only_advertised_fields(self) -> None:
+        """A site must not send optional fields the client never claimed.
+
+        Passive: it needs no trigger, only whatever traffic the run produced.
+        This is the mechanism that keeps deployed clients working when the
+        protocol grows — a site that ignores it will one day send `split` to
+        a client that cannot do split.
+        """
+        unexpected = []
+        for message_type, fields in sorted(self._fields_seen.items()):
+            allowed = _ADVERTISED.get(message_type)
+            if allowed is None:
+                continue
+            for field in sorted(fields - allowed):
+                unexpected.append(f"{message_type}.{field}")
+        if not self._fields_seen:
+            self.report.add("only advertised fields are used", SKIP,
+                            "no messages of a checkable type were seen", "§8.3")
+        elif unexpected:
+            self.report.add(
+                "only advertised fields are used", FAIL,
+                "this client did not advertise: " + ", ".join(unexpected), "§8.3")
+        else:
+            self.report.add("only advertised fields are used", PASS,
+                            "the site kept to what this client claimed", "§8.3")
+
     async def check_supersede(self, session: aiohttp.ClientSession) -> None:
         try:
             first = await self._connect(session, token=self.token.site_token)
@@ -450,6 +505,7 @@ class Checker:
             if await self.check_discovery(session):
                 await self.check_upgrade_guards(session)
                 await self.check_session(session)
+                self.check_only_advertised_fields()
                 await self.check_supersede(session)
         self.report.add("staleness does not end a follow", SKIP,
                         "not observable from outside; verify by inspection", "§10")
@@ -464,7 +520,11 @@ def main(argv: list[str] | None = None) -> int:
                         help="base URL of a reference mock site's /mock/ control surface, "
                              "used to trigger site-initiated behaviour")
     parser.add_argument("--interactive", action="store_true",
-                        help="prompt a human to trigger site-initiated behaviour")
+                        help="prompt a person to click things on the site, so the "
+                             "checks that need it can run")
+    parser.add_argument("--human-timeout", type=float, default=HUMAN_TIMEOUT,
+                        help="how long to wait for each prompted action "
+                             f"(default {HUMAN_TIMEOUT:.0f}s)")
     parser.add_argument("--timeout", type=float, default=10.0)
     parser.add_argument("--no-colour", action="store_true")
     args = parser.parse_args(argv)
@@ -477,7 +537,8 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"Catnector Protocol conformance check")
     print(f"  endpoint: {token.host}\n")
-    checker = Checker(token, args.mock_base, args.interactive, args.timeout)
+    checker = Checker(token, args.mock_base, args.interactive, args.timeout,
+                      args.human_timeout)
     report = asyncio.run(checker.run())
     print(report.render(colour=not args.no_colour))
     return 0 if report.ok else 1

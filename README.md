@@ -58,10 +58,28 @@ catnector-conformance --token "$(python -c \
   --mock-base http://127.0.0.1:8799
 ```
 
-Point the same checker at your own endpoint to find out whether it conforms.
-Checks that need the site to *do* something — push a tune, clear a follow —
-are skipped unless you pass `--mock-base` or `--interactive`, rather than
-being assumed to pass.
+Point the same checker at your own endpoint to find out whether it conforms:
+
+```sh
+catnector-conformance --token cnx1_... --interactive
+```
+
+Most checks run on their own. Four need the site to actually *do* something a
+person would click, so `--interactive` prompts for them:
+
+```
+  → On the site: press "Tune my rig" next to any spot
+    (waiting up to 120s — no need to press anything here)
+```
+
+**There is no key to press.** The checker is already connected and listening,
+so act whenever you like — before or after the prompt appears makes no
+difference. Without `--interactive` (or `--mock-base`) those four report
+`SKIP` rather than being assumed to pass.
+
+Note that the run deliberately opens a second session to verify the
+one-session-per-account rule, so it will disconnect itself partway through.
+Use an account you are not relying on elsewhere.
 
 The mock site also accepts `POST /mock/set_rig` and `POST /mock/follow_state`
 so a client under development has something to react to:
