@@ -137,17 +137,35 @@ class Checker:
             rig={"profile": "conformance dummy", "health": "ok"})))
         return await self._recv(ws, "welcome")
 
-    async def _trigger(self, session: aiohttp.ClientSession, path: str,
-                       body: dict[str, Any]) -> asyncio.Task | None:
+    async def _trigger(self, session: aiohttp.ClientSession, prompt: str,
+                       path: str, body: dict[str, Any]) -> asyncio.Task | None:
+        """Make the site do something a person would otherwise click.
+
+        In interactive mode this only *asks*: it never waits for a keystroke.
+        The socket is already open and reading, so whether the operator acts
+        before or after the message is printed makes no difference — which
+        removes the "am I supposed to press Enter first?" ambiguity that a
+        confirmation prompt creates.
+        """
         if self.mock_base:
-            return asyncio.create_task(
-                session.post(f"{self.mock_base}{path}", json=body))
+            return asyncio.create_task(session.post(f"{self.mock_base}{path}",
+                                                    json=body))
         if self.interactive:
-            print(f"\n  >>> Now make the site do this, then press Enter: "
-                  f"{path} {json.dumps(body)}")
-            await asyncio.get_running_loop().run_in_executor(None, sys.stdin.readline)
-            return None
+            print(f"\n  \033[1m→ On the site: {prompt}\033[0m")
+            print(f"    (waiting up to {int(self.human_timeout)}s — no need to "
+                  f"press anything here)")
         return None
+
+    async def _await_human(self, ws, want: str):
+        """Wait for a message the operator's action should have caused."""
+        timeout = self.human_timeout if self.interactive else self.timeout
+        return await self._recv(ws, want, timeout=timeout)
+
+    def _note_fields(self, message: dict[str, Any]) -> None:
+        """Record optional fields the site used, for the §8.3 check."""
+        for field in message:
+            if field not in _ENVELOPE_FIELDS:
+                self._fields_seen.setdefault(str(message.get("type", "?")), set()).add(field)
 
     # --------------------------------------------------------------- checks
 
@@ -276,75 +294,131 @@ class Checker:
                             "clients must self-throttle, but a site SHOULD notice", "§9.1")
 
     async def _check_control(self, session: aiohttp.ClientSession, ws) -> None:
+        names = ("site sends a usable set_rig", "site tolerates a refusal",
+                 "follow_state is set", "follow_state is cleared")
         if not (self.mock_base or self.interactive):
-            for name in ("set_rig round trip", "tolerates nack", "follow_state cleared"):
-                self.report.add(name, SKIP,
-                                "needs --mock-base or --interactive to trigger", "§7.4")
+            for name in names:
+                self.report.add(
+                    name, SKIP,
+                    "the site has to be made to do this — pass --interactive to "
+                    "be prompted, or --mock-base to drive a reference site",
+                    "§7.4")
             return
 
-        # 1. a tune the client accepts
-        task = await self._trigger(session, "/mock/set_rig",
-                                   {"freq": 14195000, "mode": "USB",
-                                    "source": "conformance check"})
-        control = await self._recv(ws, "set_rig", timeout=self.timeout)
+        await self._check_set_rig_accepted(session, ws)
+        await self._check_set_rig_refused(session, ws)
+        await self._check_follow_state(session, ws)
+
+    async def _check_set_rig_accepted(self, session: aiohttp.ClientSession, ws) -> None:
+        task = await self._trigger(
+            session,
+            "press \"Tune my rig\" next to any spot",
+            "/mock/set_rig",
+            {"freq": 14195000, "mode": "USB", "source": "conformance check"})
+        control = await self._await_human(ws, "set_rig")
+        if task:
+            (await task).close()
         if control is None:
-            self.report.add("set_rig round trip", FAIL, "no set_rig arrived", "§7.4")
-            if task:
-                task.cancel()
+            self.report.add("site sends a usable set_rig", SKIP,
+                            "no set_rig arrived", "§7.4")
             return
+
+        self._note_fields(control)
+        problems = []
+        freq = control.get("freq")
+        if not isinstance(freq, int) or isinstance(freq, bool):
+            problems.append(f"freq must be an integer number of hertz, got {freq!r}")
+        mode = control.get("mode")
+        if mode is not None and mode not in _MODES:
+            problems.append(f"{mode!r} is not a hamlib mode token")
+
         await ws.send_str(json.dumps(_msg("ack", self.nid(), re=control["id"])))
-        self.report.add("set_rig round trip", PASS,
-                        f"freq={control.get('freq')} mode={control.get('mode')} "
-                        f"source={control.get('source')!r}", "§7.4")
-        if task:
-            resp = await task
-            resp.close()
+        if problems:
+            self.report.add("site sends a usable set_rig", FAIL,
+                            "; ".join(problems), "§6.1")
+        else:
+            self.report.add("site sends a usable set_rig", PASS,
+                            f"freq={freq} mode={mode} source={control.get('source')!r}",
+                            "§7.4")
 
-        # 2. a tune the client refuses - the session must survive it
-        task = await self._trigger(session, "/mock/set_rig",
-                                   {"freq": 14195000, "mode": "USB",
-                                    "req": ["split"], "source": "refusal check"})
-        control = await self._recv(ws, "set_rig", timeout=self.timeout)
+    async def _check_set_rig_refused(self, session: aiohttp.ClientSession, ws) -> None:
+        """A client refuses tunes routinely — the session must survive it.
+
+        Refusals are ordinary: the radio is transmitting, the frequency is
+        outside its range, the operator has automatic tuning off. A site that
+        drops the session over one would disconnect people for using the
+        product correctly.
+        """
+        task = await self._trigger(
+            session,
+            "press \"Tune my rig\" once more — this check will decline it",
+            "/mock/set_rig",
+            {"freq": 14195000, "mode": "USB", "source": "refusal check"})
+        control = await self._await_human(ws, "set_rig")
+        if task:
+            (await task).close()
         if control is None:
-            self.report.add("tolerates nack", SKIP, "no second set_rig arrived", "§8.2")
-        else:
-            await ws.send_str(json.dumps(_msg(
-                "nack", self.nid(), re=control["id"], reason="unsupported_req",
-                detail="conformance checker does not implement split")))
-            if task:
-                resp = await task
-                resp.close()
-            probe = self.nid()
-            await ws.send_str(json.dumps(_msg("ping", probe)))
-            pong = await self._recv(ws, "pong", timeout=5.0)
-            if pong:
-                self.report.add("tolerates nack", PASS,
-                                "session still alive after a refusal", "§8.2")
-            else:
-                self.report.add("tolerates nack", FAIL,
-                                "session died after a nack", "§8.2")
-
-        # 3. follow_state must be sent, including when it clears
-        task = await self._trigger(session, "/mock/follow_state", {"following": "W1ABC"})
-        state = await self._recv(ws, "follow_state", timeout=self.timeout)
-        if task:
-            resp = await task
-            resp.close()
-        if state is None:
-            self.report.add("follow_state cleared", SKIP, "no follow_state seen", "§7.5")
+            self.report.add("site tolerates a refusal", SKIP,
+                            "no second set_rig arrived", "§7.6")
             return
-        task = await self._trigger(session, "/mock/follow_state", {"following": None})
-        cleared = await self._recv(ws, "follow_state", timeout=self.timeout)
-        if task:
-            resp = await task
-            resp.close()
-        if cleared is not None and cleared.get("following") is None:
-            self.report.add("follow_state cleared", PASS,
-                            "site sends follow_state=null when a follow ends", "§7.5")
+
+        self._note_fields(control)
+        await ws.send_str(json.dumps(_msg(
+            "nack", self.nid(), re=control["id"], reason="rejected",
+            detail="declined by the conformance checker")))
+
+        probe = self.nid()
+        await ws.send_str(json.dumps(_msg("ping", probe)))
+        if await self._recv(ws, "pong", timeout=10.0):
+            self.report.add("site tolerates a refusal", PASS,
+                            "the session survived a nack", "§7.6")
         else:
-            self.report.add("follow_state cleared", FAIL,
-                            "site never cleared follow_state; a client indicator "
-                            "would keep claiming a follow that is over", "§7.5")
+            self.report.add("site tolerates a refusal", FAIL,
+                            "the session ended after a refusal; refusals are "
+                            "routine and must not disconnect anyone", "§7.6")
+
+    async def _check_follow_state(self, session: aiohttp.ClientSession, ws) -> None:
+        task = await self._trigger(
+            session,
+            "start following an operator (\"QSY Follow\")",
+            "/mock/follow_state", {"following": "W1ABC"})
+        state = await self._await_human(ws, "follow_state")
+        if task:
+            (await task).close()
+        if state is None:
+            self.report.add("follow_state is set", SKIP,
+                            "no follow_state arrived", "§7.5")
+            self.report.add("follow_state is cleared", SKIP,
+                            "the follow was never seen to start", "§7.5")
+            return
+
+        self._note_fields(state)
+        if state.get("following"):
+            self.report.add("follow_state is set", PASS,
+                            f"following {state['following']!r}", "§7.5")
+        else:
+            self.report.add("follow_state is set", FAIL,
+                            "follow_state arrived with nothing in it", "§7.5")
+
+        task = await self._trigger(
+            session,
+            "stop following (unfollow, or have that operator un-spot)",
+            "/mock/follow_state", {"following": None})
+        cleared = await self._await_human(ws, "follow_state")
+        if task:
+            (await task).close()
+        if cleared is None:
+            self.report.add("follow_state is cleared", SKIP,
+                            "no second follow_state arrived", "§7.5")
+        elif cleared.get("following") is None:
+            self.report.add("follow_state is cleared", PASS,
+                            "the site sends follow_state=null when a follow ends",
+                            "§7.5")
+        else:
+            self.report.add(
+                "follow_state is cleared", FAIL,
+                "the site never cleared follow_state — every follower's client "
+                "would go on claiming a follow that is over", "§7.5")
 
     async def check_supersede(self, session: aiohttp.ClientSession) -> None:
         try:
